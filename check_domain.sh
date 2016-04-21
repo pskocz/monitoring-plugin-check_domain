@@ -174,6 +174,9 @@ run_whois() {
 	if grep -q -e "fgets: Connection reset by peer" "$outfile"; then
 		error=0
 	fi
+	if grep -q -e "billing period had finished" "$outfile"; then
+		die "$STATE_CRITICAL" "CRITICAL - Domain's $domain billing period had finished."
+	fi
 
 	[ $error -eq 0 ] || die "$STATE_UNKNOWN" "UNKNOWN - WHOIS exited with error $error."
 }
@@ -261,6 +264,9 @@ get_expiration() {
 
 	# renewal date: 2016.01.14 18:47:31
 	/renewal date:/ && $0 ~ DATE_YYYYMMDD_HHMMSS {split($(NF-1), a, "."); printf("%s-%s-%s", a[1], a[2], a[3]); exit}
+	
+	# expiration date: 2016.01.14 18:47:31
+	/expiration date:/ && $0 ~ DATE_YYYYMMDD_HHMMSS {split($(NF-1), a, "."); printf("%s-%s-%s", a[1], a[2], a[3]); exit}
 
 	# paid-till: 2013.11.01
 	/paid-till:/ && $NF ~ DATE_YYYY_MM_DD_DOT {split($2, a, "."); printf("%s-%s-%s", a[1], a[2], a[3]); exit}
@@ -334,7 +340,7 @@ get_expiration() {
 
 	# Expired: 2015-10-03 13:36:48
 	$0 ~ "Expired: *" DATE_YYYY_MM_DD_DASH_HH_MM_SS {split($2, a, "-"); printf("%s-%s-%s", a[1], a[2], a[3]); exit}
-
+	
 	# Expiration Time: 2015-10-03 13:36:48
 	$0 ~ "Expiration Time: *" DATE_YYYY_MM_DD_DASH_HH_MM_SS {split($3, a, "-"); printf("%s-%s-%s", a[1], a[2], a[3]); exit}
 
@@ -386,3 +392,4 @@ fi
 [ $expdays -lt "$warning" ] && die "$STATE_WARNING" "WARNING - Domain $domain expired ${expdays#-} days ago ($expdate). | domain_days_until_expiry=$expdays;$warning;$critical"
 # No alarms? Ok, everything is right.
 die "$STATE_OK" "OK - Domain $domain expired ${expdays#-} days ago ($expdate). | domain_days_until_expiry=$expdays;$warning;$critical"
+
